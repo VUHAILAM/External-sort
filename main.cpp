@@ -5,28 +5,37 @@
 #include <locale>
 #include <codecvt>
 #include <fstream>
+#include <queue>
 
-
-class TempFileHandler {
+class FileHandler {
     private:
         int _counter = 0;
-        std::vector<std::string> _tempFileNames;
-        std::vector<std::wifstream*> _tempFiles;
+        std::vector<std::string> _fileNames;
+        std::vector<std::wifstream*> _files;
     public:
-        TempFileHandler();
-        ~TempFileHandler();
-        void WriteToTempFile(const std::vector<std::wstring> &textLines);
-        void OpenTempFiles();
-        void CloseTempFiles(); 
+        FileHandler();
+        ~FileHandler();
+        void WriteToFile(const std::vector<std::wstring> &textLines);
+        void OpenFiles();
+        void CloseFiles();
+        std::vector<std::wifstream*> GetVectorFiles();      
 };
 
-TempFileHandler::TempFileHandler(){}
-TempFileHandler::~TempFileHandler(){}
+FileHandler::FileHandler(){}
+FileHandler::~FileHandler(){
+    _fileNames.clear();
+    _files.clear();
+}
 
-void TempFileHandler::WriteToTempFile(const std::vector<std::wstring> &textLines) {
+void FileHandler::WriteToFile(const std::vector<std::wstring> &textLines) {
     std::string fileName = "temp_file_" + std::to_string(_counter) +".txt";
 
+    std::locale loc(std::locale(), new std::codecvt_utf16<wchar_t>);
     std::wofstream ftemp(fileName);
+
+    if (!ftemp.good()) {
+        exit(1);
+    }
 
     for(int i = 0; i < textLines.size(); ++i) {
         ftemp << textLines[i] << "\n";
@@ -34,15 +43,43 @@ void TempFileHandler::WriteToTempFile(const std::vector<std::wstring> &textLines
 
     ++_counter;
     ftemp.close();
-    _tempFileNames.push_back(fileName);
+    _fileNames.push_back(fileName);
 }
 
+void FileHandler::OpenFiles() {
+    for(int i = 0; i < _fileNames.size(); i++) {
+        std::wifstream *file = new std::wifstream(_fileNames[i]);
+        
+        if (file->good()) {
+            _files.emplace_back(file);
+        } else {
+            exit(0);
+        }
+    }
+}
+
+void FileHandler::CloseFiles() {
+    for(int i = 0; i < _files.size(); i++) {
+        _files[i]->close();
+        delete _files[i];
+    }
+
+    for(int i = 0; i < _fileNames.size(); i++) {
+        remove(_fileNames[i].c_str());
+    }
+}
+
+std::vector<std::wifstream*> FileHandler::GetVectorFiles() {
+    return this->_files;
+}
+
+typedef std::pair<std::wstring, std::wifstream*> linedata;
 class Sorter {
     private:
         std::string _inputFile;
         std::string _outputFile;
-        int _memoryLimit;
-        TempFileHandler* _handler;
+        long long _memoryLimit = 8000000000;
+        FileHandler* _handler;
     public:
         Sorter();
         Sorter(const std::string& inputFile,
@@ -56,7 +93,7 @@ class Sorter {
 };
 
 Sorter::Sorter() {
-    _handler = new TempFileHandler();
+    _handler = new FileHandler();
 }
 
 Sorter::Sorter(const std::string& inputFile,
@@ -66,7 +103,7 @@ Sorter::Sorter(const std::string& inputFile,
             , _outputFile(outputFile)
             , _memoryLimit(memoryLimit)
 {
-    _handler = new TempFileHandler();
+    _handler = new FileHandler();
 }
 
 Sorter::~Sorter() {}
@@ -94,7 +131,7 @@ void Sorter::SplitAndSort() {
 
         if (totalSize > _memoryLimit) {
             sort(textLines.begin(), textLines.end());
-            _handler->WriteToTempFile(textLines);
+            _handler->WriteToFile(textLines);
             textLines.clear();
             totalSize = 0;
         }
@@ -102,12 +139,42 @@ void Sorter::SplitAndSort() {
 
     if(!textLines.empty()) {
         sort(textLines.begin(), textLines.end());
-        _handler->WriteToTempFile(textLines);
+        _handler->WriteToFile(textLines);
     }
     
     finput.close();
 }
 
+void Sorter::Merge() {
+    _handler->OpenFiles();
+    
+    std::priority_queue<linedata, std::vector<linedata>, std::greater<linedata> > dataQueue;
+
+    auto files = _handler->GetVectorFiles();
+
+    std::wstring line;
+    for(int i = 0; i < files.size(); i++) {
+        *files[i] >> line;
+        dataQueue.emplace(linedata(line, files[i]));
+    }
+    std::locale loc(std::locale(), new std::codecvt_utf16<wchar_t>);
+    std::wofstream foutput(_outputFile);
+
+    if(!foutput.good()) {
+        exit(1);
+    }
+    while (!dataQueue.empty()) {
+        linedata topData = dataQueue.top();
+        dataQueue.pop();
+        foutput << topData.first << "\n";
+        
+        if(*(topData.second) >> line) {
+            dataQueue.emplace(linedata(line, topData.second));
+        }
+        
+    }
+    _handler->CloseFiles();
+}
 int main(int argc, char *argv[]) {
     // freopen("input.txt", "r", stdin);
     // freopen("output.txt", "w", stdout);
@@ -129,5 +196,9 @@ int main(int argc, char *argv[]) {
     //     fout << i << std::endl;
     // }
     // fout.close();
+
+    Sorter *sort = new Sorter(argv[1], argv[2], std::stoll(argv[3]));
+
+    sort->Sort();
     return 0;
 }
