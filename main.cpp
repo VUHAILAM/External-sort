@@ -7,6 +7,7 @@
 #include <fstream>
 #include <queue>
 
+typedef std::pair<std::wstring, std::wifstream*> linedata;
 class FileHandler {
     private:
         int _counter = 0;
@@ -35,6 +36,7 @@ void FileHandler::WriteToFile(const std::vector<std::wstring> &textLines) {
     ftemp.imbue(loc);
 
     if (!ftemp.good()) {
+        std::cerr << "Can not write to " << fileName << std::endl;
         exit(1);
     }
 
@@ -54,6 +56,7 @@ void FileHandler::OpenFiles() {
         if (file->good()) {
             _files.emplace_back(file);
         } else {
+            std::cerr << "Can not open " << _fileNames[i] << std::endl;
             exit(0);
         }
     }
@@ -74,7 +77,6 @@ std::vector<std::wifstream*> FileHandler::GetVectorFiles() {
     return this->_files;
 }
 
-typedef std::pair<std::wstring, std::wifstream*> linedata;
 class Sorter {
     private:
         std::string _inputFile;
@@ -120,6 +122,7 @@ void Sorter::SplitAndSort() {
     finput.imbue(loc);
 
     if(!finput.good()) {
+        std::cerr << "Can not open " << _inputFile << std::endl;
         exit(1);
     }
 
@@ -166,6 +169,7 @@ void Sorter::Merge() {
     foutput.imbue(loc);
 
     if(!foutput.good()) {
+        std::cerr << "Can not open " << _outputFile << std::endl;
         exit(1);
     }
     while (!dataQueue.empty()) {
