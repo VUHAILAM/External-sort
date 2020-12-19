@@ -30,8 +30,9 @@ FileHandler::~FileHandler(){
 void FileHandler::WriteToFile(const std::vector<std::wstring> &textLines) {
     std::string fileName = "temp_file_" + std::to_string(_counter) +".txt";
 
-    std::locale loc(std::locale(), new std::codecvt_utf16<wchar_t>);
+    std::locale loc(std::locale(), new std::codecvt_utf8<wchar_t>);
     std::wofstream ftemp(fileName);
+    ftemp.imbue(loc);
 
     if (!ftemp.good()) {
         exit(1);
@@ -114,7 +115,9 @@ void Sorter::Sort() {
 }
 
 void Sorter::SplitAndSort() {
+    std::locale loc(std::locale(), new std::codecvt_utf8<wchar_t>);
     std::wifstream finput(_inputFile);
+    finput.imbue(loc);
 
     if(!finput.good()) {
         exit(1);
@@ -147,18 +150,20 @@ void Sorter::SplitAndSort() {
 
 void Sorter::Merge() {
     _handler->OpenFiles();
-    
+    std::locale loc(std::locale(), new std::codecvt_utf8<wchar_t>);
     std::priority_queue<linedata, std::vector<linedata>, std::greater<linedata> > dataQueue;
 
     auto files = _handler->GetVectorFiles();
 
     std::wstring line;
     for(int i = 0; i < files.size(); i++) {
-        *files[i] >> line;
+        files[i]->imbue(loc);
+        std::getline(*files[i], line);
         dataQueue.emplace(linedata(line, files[i]));
     }
-    std::locale loc(std::locale(), new std::codecvt_utf16<wchar_t>);
+    
     std::wofstream foutput(_outputFile);
+    foutput.imbue(loc);
 
     if(!foutput.good()) {
         exit(1);
@@ -167,38 +172,16 @@ void Sorter::Merge() {
         linedata topData = dataQueue.top();
         dataQueue.pop();
         foutput << topData.first << "\n";
-        
-        if(*(topData.second) >> line) {
+        topData.second->imbue(loc);
+        if(std::getline(*(topData.second), line)) {
             dataQueue.emplace(linedata(line, topData.second));
         }
-        
     }
     _handler->CloseFiles();
 }
+
 int main(int argc, char *argv[]) {
-    // freopen("input.txt", "r", stdin);
-    // freopen("output.txt", "w", stdout);
-    // std::locale loc(std::locale(), new std::codecvt_utf8<wchar_t>);
-    // std::wifstream fin(argv[1]);
-    // std::wofstream fout(argv[2]);
-    // std::wstring s;
-    // std::vector<std::wstring> a;
-    // fin.imbue(loc);
-    // while (std::getline(fin, s))
-    // {
-    //     /* code */
-    //     a.push_back(s);
-    // }
-    // fin.close();
-    // sort(a.begin(), a.end());
-    // fout.imbue(loc);
-    // for (std::wstring i : a) {
-    //     fout << i << std::endl;
-    // }
-    // fout.close();
-
     Sorter *sort = new Sorter(argv[1], argv[2], std::stoll(argv[3]));
-
     sort->Sort();
     return 0;
 }
