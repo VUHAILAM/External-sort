@@ -8,6 +8,7 @@
 #include <queue>
 
 typedef std::pair<std::wstring, std::wifstream*> linedata;
+
 class FileHandler {
     private:
         int _counter = 0;
@@ -23,6 +24,7 @@ class FileHandler {
 };
 
 FileHandler::FileHandler(){}
+
 FileHandler::~FileHandler(){
     _fileNames.clear();
     _files.clear();
@@ -32,20 +34,20 @@ void FileHandler::WriteToFile(const std::vector<std::wstring> &textLines) {
     std::string fileName = "temp_file_" + std::to_string(_counter) +".txt";
 
     std::locale loc(std::locale(), new std::codecvt_utf8<wchar_t>);
-    std::wofstream ftemp(fileName);
-    ftemp.imbue(loc);
+    std::wofstream file(fileName);
+    file.imbue(loc);
 
-    if (!ftemp.good()) {
+    if (!file.good()) {
         std::cerr << "Can not write to " << fileName << std::endl;
         exit(1);
     }
 
     for(int i = 0; i < textLines.size(); ++i) {
-        ftemp << textLines[i] << "\n";
+        file << textLines[i] << "\n";
     }
 
     ++_counter;
-    ftemp.close();
+    file.close();
     _fileNames.push_back(fileName);
 }
 
@@ -82,7 +84,7 @@ class Sorter {
         std::string _inputFile;
         std::string _outputFile;
         long long _memoryLimit = 8000000000;
-        FileHandler* _handler;
+        FileHandler* _fileHandler;
     public:
         Sorter();
         Sorter(const std::string& inputFile,
@@ -96,7 +98,7 @@ class Sorter {
 };
 
 Sorter::Sorter() {
-    _handler = new FileHandler();
+    _fileHandler = new FileHandler();
 }
 
 Sorter::Sorter(const std::string& inputFile,
@@ -106,7 +108,7 @@ Sorter::Sorter(const std::string& inputFile,
             , _outputFile(outputFile)
             , _memoryLimit(memoryLimit)
 {
-    _handler = new FileHandler();
+    _fileHandler = new FileHandler();
 }
 
 Sorter::~Sorter() {}
@@ -137,7 +139,7 @@ void Sorter::SplitAndSort() {
 
         if (totalSize > _memoryLimit) {
             sort(textLines.begin(), textLines.end());
-            _handler->WriteToFile(textLines);
+            _fileHandler->WriteToFile(textLines);
             textLines.clear();
             totalSize = 0;
         }
@@ -145,18 +147,18 @@ void Sorter::SplitAndSort() {
 
     if(!textLines.empty()) {
         sort(textLines.begin(), textLines.end());
-        _handler->WriteToFile(textLines);
+        _fileHandler->WriteToFile(textLines);
     }
     
     finput.close();
 }
 
 void Sorter::Merge() {
-    _handler->OpenFiles();
+    _fileHandler->OpenFiles();
     std::locale loc(std::locale(), new std::codecvt_utf8<wchar_t>);
     std::priority_queue<linedata, std::vector<linedata>, std::greater<linedata> > dataQueue;
 
-    auto files = _handler->GetVectorFiles();
+    auto files = _fileHandler->GetVectorFiles();
 
     std::wstring line;
     for(int i = 0; i < files.size(); i++) {
@@ -181,7 +183,7 @@ void Sorter::Merge() {
             dataQueue.emplace(linedata(line, topData.second));
         }
     }
-    _handler->CloseFiles();
+    _fileHandler->CloseFiles();
 }
 
 int main(int argc, char *argv[]) {
